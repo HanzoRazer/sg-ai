@@ -165,10 +165,21 @@ def main() -> int:
     parser.add_argument("--version", required=True, help="Version string (semver)")
     parser.add_argument("--output", default="dist/device_bundle.zip", help="Output path")
     parser.add_argument("--include-ui", action="store_true", help="Include sg-app/dist")
+    parser.add_argument("--allow-missing-lock", action="store_true", help="Allow missing uv.lock (dev only)")
     args = parser.parse_args()
 
     repo_root = Path(__file__).parent.parent
     output_path = repo_root / args.output
+
+    # Guard: uv.lock must exist for reproducible builds
+    uv_lock = repo_root / "packages" / "sg-engine" / "uv.lock"
+    if not uv_lock.exists():
+        if args.allow_missing_lock:
+            print("WARNING: uv.lock missing — bundle will NOT be reproducible.")
+        else:
+            print("ERROR: uv.lock missing — run `uv lock` before bundling.")
+            print("       Use --allow-missing-lock to override (dev only).")
+            return 1
 
     if get_git_dirty():
         print("WARNING: Workspace is dirty. Bundle may not be reproducible.")

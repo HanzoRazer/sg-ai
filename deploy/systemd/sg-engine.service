@@ -9,6 +9,9 @@ User=sg
 Group=sg
 WorkingDirectory=/opt/sg-ai
 
+# Pre-flight: verify venv exists (clean failure if missing)
+ExecStartPre=/opt/sg-ai/.venv/bin/python -V
+
 # Use the module entrypoint (recommended)
 ExecStart=/opt/sg-ai/.venv/bin/python -m sg_engine.device_runtime --host 0.0.0.0 --port 8000
 

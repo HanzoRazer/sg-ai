@@ -10,7 +10,10 @@ Endpoints:
 """
 from __future__ import annotations
 
+import json
+import subprocess
 from datetime import datetime, timezone
+from pathlib import Path
 from typing import Any
 from uuid import UUID, uuid4
 
@@ -32,6 +35,17 @@ class StatusResponse(BaseModel):
     timestamp_utc: str
     versions: dict[str, str]
     hw_flags: dict[str, Any] = Field(default_factory=dict)
+
+
+class VersionResponse(BaseModel):
+    """Bundle version + git provenance for OTA diagnostics."""
+
+    bundle_version: str | None = None
+    git_sha: str | None = None
+    git_dirty: bool | None = None
+    build_time_utc: str | None = None
+    sg_engine_version: str = "0.1.0"
+    manifest_found: bool = False
 
 
 class SessionStartRequest(BaseModel):
@@ -105,6 +119,62 @@ async def get_status():
         hw_flags={
             "platform": "smart_guitar",
         },
+    )
+
+
+def _get_git_sha() -> str | None:
+    """Get current git SHA (runtime fallback)."""
+    try:
+        result = subprocess.run(
+            ["git", "rev-parse", "HEAD"],
+            capture_output=True,
+            text=True,
+            check=True,
+            timeout=5,
+        )
+        return result.stdout.strip()[:12]
+    except Exception:
+        return None
+
+
+def _load_manifest() -> dict | None:
+    """Load manifest.json from bundle root (if exists)."""
+    # Try common locations
+    for candidate in [
+        Path("/opt/sg-ai/manifest.json"),
+        Path(__file__).parent.parent.parent.parent.parent / "manifest.json",
+    ]:
+        if candidate.exists():
+            try:
+                return json.loads(candidate.read_text())
+            except Exception:
+                pass
+    return None
+
+
+@router.get("/version", response_model=VersionResponse)
+async def get_version():
+    """Bundle version + git provenance for OTA diagnostics."""
+    manifest = _load_manifest()
+    
+    if manifest:
+        return VersionResponse(
+            bundle_version=manifest.get("bundle_version"),
+            git_sha=manifest.get("git_sha"),
+            git_dirty=manifest.get("git_dirty"),
+            build_time_utc=manifest.get("build_time_utc"),
+            sg_engine_version="0.1.0",
+            manifest_found=True,
+        )
+    
+    # Fallback: runtime git SHA (dev mode)
+    return VersionResponse(
+        bundle_version=None,
+        git_sha=_get_git_sha(),
+        git_dirty=None,
+        build_time_utc=None,
+        sg_engine_version="0.1.0",
+        manifest_found=False,
     )
 
 
