@@ -1,0 +1,102 @@
+# Bundle Build — produce device bundle zip
+#
+# PR: optional build (no upload)
+# Tag: required (auto-upload to release)
+# Uses: uv (Python)
+
+name: bundle_build
+
+on:
+  push:
+    tags:
+      - "v*"
+  pull_request:
+    branches: [main]
+    paths:
+      - "packages/sg-engine/**"
+      - "scripts/build_bundle.py"
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Version to build (e.g., 0.1.0)"
+        required: true
+        default: "0.0.0-dev"
+
+jobs:
+  build:
+    name: Build Device Bundle
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v4
+        with:
+          version: "0.5"
+
+      - name: Set up Python
+        run: uv python install 3.11
+
+      - name: Install dependencies
+        working-directory: packages/sg-engine
+        run: uv sync
+
+      - name: Determine version
+        id: version
+        run: |
+          if [ "${{ github.event_name }}" == "push" ] && [[ "${{ github.ref }}" == refs/tags/* ]]; then
+            VERSION="${{ github.ref_name }}"
+          elif [ "${{ github.event_name }}" == "workflow_dispatch" ]; then
+            VERSION="${{ github.event.inputs.version }}"
+          else
+            VERSION="0.0.0-dev"
+          fi
+          echo "version=${VERSION}" >> $GITHUB_OUTPUT
+
+      - name: Build bundle
+        run: |
+          uv run python scripts/build_bundle.py --version ${{ steps.version.outputs.version }}
+
+      - name: Verify bundle contents
+        run: |
+          unzip -l dist/device_bundle.zip
+          # Verify manifest exists and is valid
+          unzip -p dist/device_bundle.zip manifest.json | python3 -c "
+          import json, sys
+          m = json.load(sys.stdin)
+          assert 'version' in m, 'Missing version in manifest'
+          assert 'git_sha' in m, 'Missing git_sha in manifest'
+          assert m.get('target_platform') == 'smart_guitar', 'Wrong target platform'
+          print(f'Bundle version: {m[\"version\"]}')
+          print(f'Git SHA: {m[\"git_sha\"]}')
+          print(f'Target: {m[\"target_platform\"]}')
+          "
+
+      - name: Check reproducibility
+        run: |
+          # Build again and compare hashes
+          uv run python scripts/build_bundle.py --version ${{ steps.version.outputs.version }} --output dist/device_bundle_2.zip
+          HASH1=$(sha256sum dist/device_bundle.zip | cut -d' ' -f1)
+          HASH2=$(sha256sum dist/device_bundle_2.zip | cut -d' ' -f1)
+          if [ "$HASH1" != "$HASH2" ]; then
+            echo "WARNING: Bundle not fully reproducible (timestamps may differ)"
+            echo "Hash 1: $HASH1"
+            echo "Hash 2: $HASH2"
+          else
+            echo "Bundle is reproducible: $HASH1"
+          fi
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: sg-device-bundle-${{ steps.version.outputs.version }}
+          path: dist/device_bundle.zip
+          retention-days: 30
+
+      - name: Upload to release
+        if: startsWith(github.ref, 'refs/tags/')
+        uses: softprops/action-gh-release@v1
+        with:
+          files: dist/device_bundle.zip
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

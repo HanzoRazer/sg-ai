@@ -1,0 +1,42 @@
+[Unit]
+Description=SG-AI Device Runtime (Smart Guitar Coach)
+Documentation=https://github.com/HanzoRazer/sg-ai
+After=network.target
+
+[Service]
+Type=simple
+User=sg
+Group=sg
+WorkingDirectory=/opt/sg-ai
+
+# Use the module entrypoint (recommended)
+ExecStart=/opt/sg-ai/.venv/bin/python -m sg_engine.device_runtime --host 0.0.0.0 --port 8000
+
+# Environment
+Environment=PYTHONUNBUFFERED=1
+Environment=SG_ENGINE_ENV=production
+
+# Restart policy
+Restart=on-failure
+RestartSec=5
+StartLimitBurst=3
+StartLimitIntervalSec=60
+
+# Security hardening
+NoNewPrivileges=yes
+ProtectSystem=strict
+ProtectHome=yes
+PrivateTmp=yes
+ReadWritePaths=/opt/sg-ai/data
+
+# Resource limits
+MemoryMax=512M
+CPUQuota=80%
+
+# Logging
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=sg-engine
+
+[Install]
+WantedBy=multi-user.target

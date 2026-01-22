@@ -1,0 +1,210 @@
+# src/sg_engine/jobs/groove_feedback.py
+"""
+Job: groove_feedback (Wave 1)
+
+Responsibilities:
+- Analyze groove metrics from context
+- Generate constructive feedback
+- Cite evidence for each feedback item
+- Suggest next focus area
+
+This job returns a CoachingDraft dict.
+"""
+
+from __future__ import annotations
+
+from typing import Any, Dict, List
+
+from sg_engine.templates.registry import get_template
+from sg_engine.validate import validate_json_schema
+from sg_engine.governance import ensure_no_pii_fields, ensure_feedback_has_evidence
+from sg_engine.models.registry import get_model
+
+
+SUPPORTED_TEMPLATE_ID = "groove_feedback"
+SUPPORTED_TEMPLATE_VERSION = "1.0.0"
+
+
+def _analyze_metrics(evidence: dict) -> List[Dict[str, Any]]:
+    """
+    Analyze groove metrics and generate feedback items.
+    This is the core Groove Layer intelligence.
+    """
+    metrics = evidence.get("groove_metrics", {})
+    feedback = []
+
+    # Analyze tempo stability
+    tempo = metrics.get("tempo_stability", 0)
+    if tempo >= 0.8:
+        feedback.append({
+            "category": "strength",
+            "text": "Your tempo consistency is excellent! You're maintaining a steady pulse throughout your playing.",
+            "evidence_refs": [{"metric": "tempo_stability", "value": tempo}],
+            "priority": 2,
+        })
+    elif tempo < 0.5:
+        feedback.append({
+            "category": "focus_area",
+            "text": "Let's work on tempo consistency. Try practicing with a metronome at a slower tempo, then gradually increase speed.",
+            "evidence_refs": [{"metric": "tempo_stability", "value": tempo}],
+            "priority": 1,
+        })
+
+    # Analyze dynamics
+    dynamics = metrics.get("dynamics_range", 0)
+    if dynamics >= 0.7:
+        feedback.append({
+            "category": "strength",
+            "text": "Great dynamic expression! Your playing has nice variation between soft and loud passages.",
+            "evidence_refs": [{"metric": "dynamics_range", "value": dynamics}],
+            "priority": 3,
+        })
+    elif dynamics < 0.3:
+        feedback.append({
+            "category": "tip",
+            "text": "Try adding more dynamic contrast to your playing. Experiment with playing some phrases softer and others louder.",
+            "evidence_refs": [{"metric": "dynamics_range", "value": dynamics}],
+            "priority": 2,
+        })
+
+    # Analyze articulation
+    articulation = metrics.get("articulation_clarity", 0)
+    if articulation >= 0.75:
+        feedback.append({
+            "category": "strength",
+            "text": "Your note articulation is clear and precise. Each note rings out distinctly.",
+            "evidence_refs": [{"metric": "articulation_clarity", "value": articulation}],
+            "priority": 3,
+        })
+
+    # Always add encouragement
+    feedback.append({
+        "category": "encouragement",
+        "text": "Keep up the great work! Consistent practice is the key to improvement.",
+        "evidence_refs": [{"metric": "tempo_stability", "value": tempo}],
+        "priority": 5,
+    })
+
+    # Sort by priority and limit to 5
+    feedback.sort(key=lambda x: x.get("priority", 5))
+    return feedback[:5]
+
+
+def _determine_next_focus(evidence: dict) -> Dict[str, Any]:
+    """Determine the best area to focus on next."""
+    metrics = evidence.get("groove_metrics", {})
+
+    # Find weakest area
+    areas = [
+        ("timing", metrics.get("tempo_stability", 0.5)),
+        ("dynamics", metrics.get("dynamics_range", 0.5)),
+        ("articulation", metrics.get("articulation_clarity", 0.5)),
+        ("phrasing", metrics.get("phrase_coherence", 0.5)),
+    ]
+
+    weakest = min(areas, key=lambda x: x[1])
+
+    exercises = {
+        "timing": "Try the 'subdivision exercise': play quarter notes, then eighths, then sixteenths, all at a steady tempo.",
+        "dynamics": "Practice the same phrase at three dynamic levels: piano, mezzo-forte, and forte.",
+        "articulation": "Focus on clean finger placement and even pressure across all strings.",
+        "phrasing": "Listen to a recording and try to match the breathing and pauses in the melody.",
+    }
+
+    return {
+        "area": weakest[0],
+        "reason": f"This area shows the most room for growth based on your session.",
+        "exercise_hint": exercises.get(weakest[0], ""),
+    }
+
+
+def _compute_groove_score(evidence: dict) -> Dict[str, Any]:
+    """Compute overall groove score for UI display."""
+    metrics = evidence.get("groove_metrics", {})
+
+    values = [
+        metrics.get("tempo_stability", 0.5),
+        metrics.get("beat_accuracy", 0.5),
+        metrics.get("dynamics_range", 0.5),
+        metrics.get("articulation_clarity", 0.5),
+        metrics.get("phrase_coherence", 0.5),
+    ]
+
+    overall = sum(values) / len(values) * 100
+
+    # Determine trend (would need history in real implementation)
+    trend = "stable"
+    if overall >= 70:
+        trend = "improving"
+    elif overall < 50:
+        trend = "needs_attention"
+
+    return {
+        "overall": round(overall, 1),
+        "trend": trend,
+    }
+
+
+def run_job(context: dict) -> Dict[str, Any]:
+    """
+    Execute the groove_feedback job and return CoachingDraft dict.
+    """
+    request = context.get("request", {}) or {}
+    template_id = request.get("template_id")
+    template_version = request.get("template_version")
+    kind = request.get("kind")
+
+    # Hard gate
+    if kind != "groove_feedback":
+        raise ValueError(f"Unsupported request.kind for groove_feedback job: {kind!r}")
+    if template_id != SUPPORTED_TEMPLATE_ID or template_version != SUPPORTED_TEMPLATE_VERSION:
+        raise ValueError(
+            f"Unsupported template {template_id}@{template_version}. "
+            f"Supported: {SUPPORTED_TEMPLATE_ID}@{SUPPORTED_TEMPLATE_VERSION}"
+        )
+
+    # Get evidence
+    evidence = context.get("evidence", {})
+
+    # Governance check on input
+    ensure_no_pii_fields(context)
+
+    # Get model (for provenance)
+    model = get_model()
+
+    # Analyze and generate feedback
+    feedback = _analyze_metrics(evidence)
+    next_focus = _determine_next_focus(evidence)
+    groove_score = _compute_groove_score(evidence)
+
+    # Build draft
+    draft = {
+        "schema_id": "coaching_draft_v1",
+        "schema_version": "v1",
+        "kind": "groove_feedback",
+        "model": {
+            "id": model.model_id(),
+            "version": model.model_version(),
+            "runtime": "local",
+        },
+        "template": {
+            "id": SUPPORTED_TEMPLATE_ID,
+            "version": SUPPORTED_TEMPLATE_VERSION,
+        },
+        "feedback": feedback,
+        "next_focus": next_focus,
+        "groove_score": groove_score,
+    }
+
+    # Generate summary
+    stats = evidence.get("session_stats", {})
+    duration = stats.get("duration_seconds", 0)
+    notes = stats.get("notes_played", 0)
+    if duration > 0:
+        draft["summary"] = f"Great session! You played {notes} notes over {duration // 60} minutes."
+
+    # Governance check on output
+    ensure_no_pii_fields(draft)
+    ensure_feedback_has_evidence(draft)
+
+    return draft

@@ -1,0 +1,13 @@
+{
+  "name": "@sg-ai/app",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Smart Guitar UI (stub)",
+  "scripts": {
+    "lint": "echo 'no lint configured yet'",
+    "typecheck": "echo 'no typecheck configured yet'",
+    "test": "echo 'no tests configured yet'",
+    "build": "echo 'no build configured yet'"
+  },
+  "devDependencies": {}
+}

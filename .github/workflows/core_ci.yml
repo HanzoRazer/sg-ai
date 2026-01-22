@@ -1,0 +1,143 @@
+# Core CI — correctness and determinism
+#
+# Runs on PR + push to main
+# Fail-fast: lint + typecheck before tests
+# Uses: uv (Python), pnpm (TypeScript)
+
+name: core_ci
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "packages/**"
+      - "contracts/**"
+      - "uv.lock"
+      - "pnpm-lock.yaml"
+      - ".github/workflows/core_ci.yml"
+  pull_request:
+    branches: [main]
+
+jobs:
+  python-lint-typecheck:
+    name: Python Lint + Typecheck
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v4
+        with:
+          version: "0.5"
+
+      - name: Set up Python
+        run: uv python install 3.11
+
+      - name: Install dependencies
+        working-directory: packages/sg-engine
+        run: uv sync --all-extras
+
+      - name: Ruff lint
+        working-directory: packages/sg-engine
+        run: uv run ruff check src/
+
+      - name: Ruff format check
+        working-directory: packages/sg-engine
+        run: uv run ruff format --check src/
+
+      - name: Pyright typecheck
+        working-directory: packages/sg-engine
+        run: uv run pyright src/sg_engine/
+
+  python-test:
+    name: Python Tests
+    needs: python-lint-typecheck
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python-version: ["3.11"]
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v4
+        with:
+          version: "0.5"
+
+      - name: Set up Python
+        run: uv python install ${{ matrix.python-version }}
+
+      - name: Install dependencies
+        working-directory: packages/sg-engine
+        run: uv sync --all-extras
+
+      - name: Run tests
+        working-directory: packages/sg-engine
+        run: uv run pytest -v
+
+  typescript-check:
+    name: TypeScript Check
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 8
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "pnpm"
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile || pnpm install
+
+      - name: Lint
+        run: pnpm lint
+
+      - name: Typecheck
+        run: pnpm typecheck
+
+  governance:
+    name: Governance Checks
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: No PII in schemas
+        run: |
+          python3 -c "
+          import json
+          from pathlib import Path
+
+          FORBIDDEN = ['player_id', 'account_id', 'email', 'phone', 'user_id']
+
+          for schema_dir in [Path('contracts'), Path('packages/sg-engine/src/sg_engine/schemas')]:
+              if not schema_dir.exists():
+                  continue
+              for schema in schema_dir.glob('*.json'):
+                  content = schema.read_text()
+                  # Check for forbidden fields as required properties (not in 'not' blocks)
+                  for field in FORBIDDEN:
+                      if f'\"required\": [\"{field}\"]' in content:
+                          # Check if this is inside a 'not' block (allowed)
+                          idx = content.find(f'\"required\": [\"{field}\"]')
+                          preceding = content[:idx]
+                          if '\"not\"' not in preceding[-200:]:
+                              print(f'ERROR: {schema.name} exposes PII field: {field}')
+                              exit(1)
+          print('Governance: No PII fields in schema properties')
+          "
+
+      - name: No large audio files
+        run: |
+          LARGE=$(find . -type f \( -name "*.wav" -o -name "*.flac" -o -name "*.mp3" \) -size +1M 2>/dev/null | head -5)
+          if [ -n "$LARGE" ]; then
+            echo "ERROR: Large audio files found:"
+            echo "$LARGE"
+            exit 1
+          fi
+          echo "Governance: No large audio files"

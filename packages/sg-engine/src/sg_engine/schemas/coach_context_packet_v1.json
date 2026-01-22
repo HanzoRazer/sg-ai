@@ -1,0 +1,182 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "coach_context_packet_v1.json",
+  "title": "CoachContextPacket v1",
+  "description": "Input context for Smart Guitar AI Coach. Contains practice session data without PII.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_id", "schema_version", "created_at_utc", "session_id", "request", "evidence"],
+
+  "allOf": [
+    {
+      "$comment": "Hard-block forbidden PII fields at top-level.",
+      "not": {
+        "anyOf": [
+          { "required": ["player_id"] },
+          { "required": ["account_id"] },
+          { "required": ["user_id"] },
+          { "required": ["email"] },
+          { "required": ["phone"] },
+          { "required": ["name"] }
+        ]
+      }
+    }
+  ],
+
+  "properties": {
+    "schema_id": {
+      "const": "coach_context_packet_v1"
+    },
+    "schema_version": {
+      "const": "v1"
+    },
+    "created_at_utc": {
+      "type": "string",
+      "description": "RFC3339 timestamp in UTC"
+    },
+    "session_id": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128,
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,126}[A-Za-z0-9]?$",
+      "description": "Practice session identifier (device-local, not user-identifying)"
+    },
+
+    "request": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["kind", "template_id", "template_version"],
+      "properties": {
+        "kind": {
+          "type": "string",
+          "enum": ["groove_feedback", "practice_summary", "technique_hint", "repertoire_suggest"],
+          "description": "Job kind."
+        },
+        "template_id": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Template identifier."
+        },
+        "template_version": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Template version (semver)."
+        },
+        "focus_area": {
+          "type": "string",
+          "description": "Optional focus area for coaching (e.g., 'timing', 'dynamics', 'articulation')."
+        }
+      }
+    },
+
+    "evidence": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["groove_metrics", "session_stats"],
+      "properties": {
+        "groove_metrics": {
+          "type": "object",
+          "additionalProperties": false,
+          "description": "Groove Layer analysis results",
+          "properties": {
+            "tempo_stability": {
+              "type": "number",
+              "minimum": 0,
+              "maximum": 1,
+              "description": "0-1 score for tempo consistency"
+            },
+            "beat_accuracy": {
+              "type": "number",
+              "minimum": 0,
+              "maximum": 1,
+              "description": "0-1 score for beat placement"
+            },
+            "dynamics_range": {
+              "type": "number",
+              "minimum": 0,
+              "maximum": 1,
+              "description": "0-1 score for dynamic expression"
+            },
+            "articulation_clarity": {
+              "type": "number",
+              "minimum": 0,
+              "maximum": 1,
+              "description": "0-1 score for note articulation"
+            },
+            "phrase_coherence": {
+              "type": "number",
+              "minimum": 0,
+              "maximum": 1,
+              "description": "0-1 score for musical phrasing"
+            }
+          }
+        },
+        "session_stats": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "duration_seconds": {
+              "type": "integer",
+              "minimum": 0,
+              "description": "Session duration in seconds"
+            },
+            "notes_played": {
+              "type": "integer",
+              "minimum": 0,
+              "description": "Total notes detected"
+            },
+            "tempo_bpm": {
+              "type": "number",
+              "minimum": 20,
+              "maximum": 300,
+              "description": "Average tempo in BPM"
+            },
+            "key_signature": {
+              "type": "string",
+              "description": "Detected or set key signature"
+            },
+            "time_signature": {
+              "type": "string",
+              "description": "Time signature (e.g., '4/4', '3/4')"
+            }
+          }
+        },
+        "pattern_refs": {
+          "type": "array",
+          "description": "References to detected patterns/exercises",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["pattern_id"],
+            "properties": {
+              "pattern_id": { "type": "string", "minLength": 1 },
+              "name": { "type": "string" },
+              "category": { "type": "string" }
+            }
+          }
+        }
+      }
+    },
+
+    "device_context": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "Device-level context (non-identifying)",
+      "properties": {
+        "instrument_model": {
+          "type": "string",
+          "enum": ["headed", "headless"],
+          "description": "Smart Guitar model variant"
+        },
+        "firmware_version": {
+          "type": "string",
+          "description": "Firmware version string"
+        },
+        "tuning": {
+          "type": "string",
+          "description": "Current tuning (e.g., 'standard', 'drop_d')"
+        }
+      }
+    }
+  }
+}

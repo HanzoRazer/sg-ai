@@ -1,0 +1,40 @@
+{
+  "_meta": {
+    "name": "sample_high_tempo_stability",
+    "category": "core",
+    "description": "Tests feedback for a session with high tempo stability",
+    "created": "2026-01-21"
+  },
+  "input": {
+    "schema_id": "coach_context_packet_v1",
+    "schema_version": "v1",
+    "created_at_utc": "2026-01-21T12:00:00Z",
+    "session_id": "test-high-tempo",
+    "request": {
+      "kind": "groove_feedback",
+      "template_id": "groove_feedback",
+      "template_version": "1.0.0"
+    },
+    "evidence": {
+      "groove_metrics": {
+        "tempo_stability": 0.92,
+        "beat_accuracy": 0.85,
+        "dynamics_range": 0.45,
+        "articulation_clarity": 0.78,
+        "phrase_coherence": 0.70
+      },
+      "session_stats": {
+        "duration_seconds": 420,
+        "notes_played": 280,
+        "tempo_bpm": 100,
+        "time_signature": "4/4"
+      }
+    }
+  },
+  "expected": {
+    "kind": "groove_feedback",
+    "should_fail": false,
+    "expect_strength_in": ["tempo_stability"],
+    "expect_focus_area_in": ["dynamics"]
+  }
+}

@@ -1,0 +1,116 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "device_bundle_manifest_v1",
+  "title": "SG-AI Device Bundle Manifest",
+  "description": "Manifest for Smart Guitar AI Coach device bundles",
+  "type": "object",
+  "required": [
+    "schema_id",
+    "schema_version",
+    "bundle_version",
+    "git_sha",
+    "target_platform",
+    "components",
+    "entrypoint"
+  ],
+  "additionalProperties": false,
+  "properties": {
+    "schema_id": {
+      "const": "device_bundle_manifest_v1"
+    },
+    "schema_version": {
+      "const": "1.0"
+    },
+    "bundle_version": {
+      "type": "string",
+      "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+(-[a-zA-Z0-9.]+)?$",
+      "description": "Semver bundle version"
+    },
+    "git_sha": {
+      "type": "string",
+      "minLength": 7,
+      "maxLength": 40,
+      "description": "Git commit SHA (short or full)"
+    },
+    "git_dirty": {
+      "type": "boolean",
+      "default": false,
+      "description": "True if workspace had uncommitted changes"
+    },
+    "build_time_utc": {
+      "type": "string",
+      "format": "date-time",
+      "description": "ISO 8601 build timestamp"
+    },
+    "target_platform": {
+      "const": "smart_guitar",
+      "description": "Target device platform"
+    },
+    "components": {
+      "type": "object",
+      "required": ["sg_engine"],
+      "additionalProperties": false,
+      "properties": {
+        "sg_engine": {
+          "type": "string",
+          "description": "sg-engine version"
+        },
+        "sg_app": {
+          "type": ["string", "null"],
+          "description": "sg-app version (null if not included)"
+        }
+      }
+    },
+    "entrypoint": {
+      "type": "object",
+      "required": ["module", "port"],
+      "additionalProperties": false,
+      "properties": {
+        "module": {
+          "type": "string",
+          "description": "Python module path for device runtime",
+          "default": "sg_engine.device_runtime"
+        },
+        "port": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 65535,
+          "default": 8000,
+          "description": "HTTP port for API + UI"
+        }
+      }
+    },
+    "install": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "requires_uv_sync": {
+          "type": "boolean",
+          "default": true,
+          "description": "If true, run 'uv sync --frozen' after unpack"
+        },
+        "python_version": {
+          "type": "string",
+          "default": "3.11",
+          "description": "Required Python version"
+        }
+      }
+    },
+    "ui": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "included": {
+          "type": "boolean",
+          "default": true,
+          "description": "True if sg-app/dist is bundled"
+        },
+        "mount_path": {
+          "type": "string",
+          "default": "/",
+          "description": "URL path for static UI"
+        }
+      }
+    }
+  }
+}
