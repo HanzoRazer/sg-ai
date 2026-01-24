@@ -12,6 +12,7 @@ from __future__ import annotations
 from typing import Any, Dict
 
 from sg_engine.jobs.groove_feedback import run_job as run_groove_feedback
+from sg_engine.jobs.practice_summary import run_job as run_practice_summary
 
 
 class UnsupportedJobError(ValueError):
@@ -26,8 +27,7 @@ def run(context: dict) -> Dict[str, Any]:
     if kind == "groove_feedback" and template_id == "groove_feedback":
         return run_groove_feedback(context)
 
-    # Future jobs
-    # if kind == "practice_summary" and template_id == "practice_summary":
-    #     return run_practice_summary(context)
+    if kind == "practice_summary" and template_id == "practice_summary":
+        return run_practice_summary(context)
 
     raise UnsupportedJobError(f"Unsupported job: kind={kind!r}, template_id={template_id!r}")
