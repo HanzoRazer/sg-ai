@@ -71,9 +71,9 @@ def _analyze_metrics(evidence: dict) -> List[Dict[str, Any]]:
             "evidence_refs": [{"metric": "dynamics_range", "value": dynamics}],
             "priority": 3,
         })
-    elif dynamics < 0.3:
+    elif dynamics < 0.5:
         feedback.append({
-            "category": "tip",
+            "category": "focus_area",
             "text": "Try adding more dynamic contrast to your playing. Experiment with playing some phrases softer and others louder.",
             "evidence_refs": [{"metric": "dynamics_range", "value": dynamics}],
             "priority": 2,
@@ -221,6 +221,55 @@ def run_job(context: dict) -> Dict[str, Any]:
 
     return draft
 
+
+
+# =============================================================================
+# Simplified Entry Point
+# =============================================================================
+
+def run_groove_feedback(context: dict) -> Dict[str, Any]:
+    """
+    Simplified entry point for groove feedback generation.
+
+    This is a convenience wrapper around run_job() that:
+    - Accepts a flatter context structure (groove_metrics at top level)
+    - Transforms it to the run_job format
+    - Returns draft with session_id and groove_score.value for UI consumption
+
+    Args:
+        context: Dict with groove_metrics, session_stats, session_id, etc.
+
+    Returns:
+        CoachingDraft dict with feedback, groove_score, etc.
+    """
+    # Transform flat context to run_job format
+    job_context = {
+        "request": {
+            "template_id": SUPPORTED_TEMPLATE_ID,
+            "template_version": SUPPORTED_TEMPLATE_VERSION,
+            "kind": "groove_feedback",
+        },
+        "evidence": {
+            "groove_metrics": context.get("groove_metrics", {}),
+            "session_stats": context.get("session_stats", {}),
+        },
+    }
+
+    # Run the job
+    draft = run_job(job_context)
+
+    # Add session_id to output for API compatibility
+    draft["session_id"] = context.get("session_id", "unknown")
+
+    # Transform groove_score to have 'value' key for UI
+    if "groove_score" in draft:
+        score = draft["groove_score"]
+        draft["groove_score"] = {
+            "value": score.get("overall", 0),
+            "trend": score.get("trend", "stable"),
+        }
+
+    return draft
 
 
 # =============================================================================
