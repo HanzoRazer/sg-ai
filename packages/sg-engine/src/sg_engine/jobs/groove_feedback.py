@@ -9,11 +9,23 @@ Responsibilities:
 - Suggest next focus area
 
 This job returns a CoachingDraft dict.
+
+sg-spec Integration:
+    Feedback items can be converted to sg_spec.ai.coach.schemas.CoachFinding
+    using to_coach_finding(). This enables interop with string_master's
+    coach layer (Mode 1 rules-based evaluation).
+
+    Example:
+        from sg_engine.coach_types import CoachFinding, Severity
+        finding = to_coach_finding(feedback_item)  # -> CoachFinding
 """
 
 from __future__ import annotations
 
-from typing import Any, Dict, List
+from typing import Any, Dict, List, TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from sg_engine.coach_types import CoachFinding
 
 from sg_engine.templates.registry import get_template
 from sg_engine.validate import validate_json_schema
@@ -208,3 +220,63 @@ def run_job(context: dict) -> Dict[str, Any]:
     ensure_feedback_has_evidence(draft)
 
     return draft
+
+
+
+# =============================================================================
+# sg-spec Integration Helpers
+# =============================================================================
+
+# Mapping from groove feedback categories to sg-spec types
+_CATEGORY_TO_TYPE = {
+    "strength": "technique",
+    "focus_area": "timing",
+    "tip": "technique",
+    "encouragement": "other",
+}
+
+# Mapping from groove feedback categories to sg-spec severity
+_CATEGORY_TO_SEVERITY = {
+    "strength": "info",
+    "focus_area": "primary",
+    "tip": "secondary",
+    "encouragement": "info",
+}
+
+
+def to_coach_finding(feedback_item: Dict[str, Any]) -> "CoachFinding":
+    """
+    Convert a groove feedback item to a sg-spec CoachFinding.
+
+    This enables interop with string_master's coach layer.
+
+    Args:
+        feedback_item: Dict with keys: category, text, evidence_refs, priority
+
+    Returns:
+        CoachFinding instance compatible with sg-spec
+    """
+    from sg_engine.coach_types import CoachFinding, FindingEvidence, Severity
+
+    category = feedback_item.get("category", "tip")
+    text = feedback_item.get("text", "")
+    refs = feedback_item.get("evidence_refs", [])
+
+    # Build evidence from first ref (if any)
+    evidence_kwargs: Dict[str, Any] = {}
+    if refs:
+        ref = refs[0]
+        if "metric" in ref:
+            evidence_kwargs["metric"] = ref["metric"]
+        if "value" in ref:
+            evidence_kwargs["value"] = ref["value"]
+
+    finding_type = _CATEGORY_TO_TYPE.get(category, "other")
+    severity_str = _CATEGORY_TO_SEVERITY.get(category, "info")
+
+    return CoachFinding(
+        type=finding_type,  # type: ignore[arg-type]
+        severity=Severity(severity_str),
+        evidence=FindingEvidence(**evidence_kwargs),
+        interpretation=text[:240],  # CoachFinding has max 240 chars
+    )
