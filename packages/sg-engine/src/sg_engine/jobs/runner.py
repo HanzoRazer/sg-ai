@@ -13,6 +13,7 @@ from typing import Any, Dict
 
 from sg_engine.jobs.groove_feedback import run_job as run_groove_feedback
 from sg_engine.jobs.practice_summary import run_job as run_practice_summary
+from sg_engine.jobs.timing_feedback import run_timing_feedback
 
 
 class UnsupportedJobError(ValueError):
@@ -29,5 +30,8 @@ def run(context: dict) -> Dict[str, Any]:
 
     if kind == "practice_summary" and template_id == "practice_summary":
         return run_practice_summary(context)
+
+    if kind == "timing_feedback" and template_id == "timing_feedback":
+        return run_timing_feedback(context)
 
     raise UnsupportedJobError(f"Unsupported job: kind={kind!r}, template_id={template_id!r}")
