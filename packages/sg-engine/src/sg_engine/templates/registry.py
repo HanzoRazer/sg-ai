@@ -73,3 +73,10 @@ register_template(
     "practice_summary",
     "Generate a summary of the practice session.",
 )
+
+register_template(
+    "explain_drill",
+    "1.0.0",
+    "explain_drill",
+    "Generate coaching phrase, 2-step drill, and success cue for each teaching objective.",
+)

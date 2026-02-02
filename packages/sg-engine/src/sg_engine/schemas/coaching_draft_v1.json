@@ -16,7 +16,7 @@
     },
     "kind": {
       "type": "string",
-      "enum": ["groove_feedback", "practice_summary", "technique_hint", "repertoire_suggest"]
+      "enum": ["groove_feedback", "practice_summary", "technique_hint", "repertoire_suggest", "explain_drill"]
     },
 
     "model": {
@@ -126,6 +126,47 @@
           "type": "string",
           "enum": ["improving", "stable", "needs_attention"],
           "description": "Trend indicator"
+        }
+      }
+    },
+
+    "drill_packs": {
+      "type": "array",
+      "description": "Explain + Drill content for each teaching objective (explain_drill jobs only)",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["objective_id", "coaching_phrase", "drill_steps", "success_cue"],
+        "properties": {
+          "objective_id": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 64,
+            "description": "Matches teaching_objectives[].objective_id from input"
+          },
+          "coaching_phrase": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 120,
+            "description": "1-line coaching phrase explaining the concept"
+          },
+          "drill_steps": {
+            "type": "array",
+            "minItems": 2,
+            "maxItems": 2,
+            "description": "Exactly 2 concrete practice steps",
+            "items": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 200
+            }
+          },
+          "success_cue": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 150,
+            "description": "What success feels like (sensory cue for the learner)"
+          }
         }
       }
     }

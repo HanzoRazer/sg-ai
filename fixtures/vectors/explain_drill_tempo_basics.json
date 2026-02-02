@@ -1,0 +1,53 @@
+{
+  "_meta": {
+    "name": "explain_drill_tempo_basics",
+    "category": "core",
+    "description": "Tests explain_drill job with tempo-related teaching objective",
+    "created": "2026-02-01",
+    "milestone": "Explain + Drill Pack v1"
+  },
+  "input": {
+    "schema_id": "coach_context_packet_v1",
+    "schema_version": "v1",
+    "created_at_utc": "2026-02-01T10:00:00Z",
+    "session_id": "test-explain-drill-001",
+    "request": {
+      "kind": "explain_drill",
+      "template_id": "explain_drill",
+      "template_version": "1.0.0",
+      "teaching_objectives": [
+        {
+          "objective_id": "tempo_steady_quarter",
+          "skill_area": "tempo",
+          "description": "Maintain steady quarter note pulse at 80 BPM",
+          "current_level": 0.45
+        }
+      ]
+    },
+    "evidence": {
+      "groove_metrics": {
+        "tempo_stability": 0.45,
+        "beat_accuracy": 0.60,
+        "dynamics_range": 0.70,
+        "articulation_clarity": 0.65,
+        "phrase_coherence": 0.55
+      },
+      "session_stats": {
+        "duration_seconds": 300,
+        "notes_played": 120,
+        "tempo_bpm": 80,
+        "time_signature": "4/4"
+      }
+    }
+  },
+  "expected": {
+    "kind": "explain_drill",
+    "should_fail": false,
+    "expect_drill_pack_for": ["tempo_steady_quarter"],
+    "drill_pack_constraints": {
+      "coaching_phrase_max_length": 120,
+      "drill_steps_count": 2,
+      "success_cue_max_length": 150
+    }
+  }
+}
