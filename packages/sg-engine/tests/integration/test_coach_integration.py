@@ -32,13 +32,13 @@ from sg_spec.ai.coach.schemas import (
 from sg_spec.ai.coach.coach_policy import evaluate_session
 from sg_spec.schemas.groove_layer import (
     GrooveProfileV1,
-    TimingBias,
-    TempoStability,
-    SubdivisionFidelity,
-    ErrorRecovery,
-    GrooveElasticity,
-    ConfidenceBand,
-    EvidenceWindow,
+    TimingBiasV1,
+    TempoStabilityV1,
+    SubdivisionFidelityV1,
+    ErrorRecoveryV1,
+    GrooveElasticityV1,
+    ConfidenceBandV1,
+    EvidenceWindowV1,
 )
 
 from sg_engine.jobs.groove_feedback import run_groove_feedback, to_coach_finding
@@ -92,42 +92,39 @@ def session_record():
 @pytest.fixture
 def groove_profile():
     """Create a real GrooveProfileV1 from sg-spec."""
-    now = datetime.now(timezone.utc).isoformat()
     return GrooveProfileV1(
         profile_id="test-profile-001",
         scope="device_local",
-        timing_bias=TimingBias(
+        timing_bias=TimingBiasV1(
             mean_offset_ms=5.0,
             stddev_ms=3.0,
             direction="ahead",
             confidence=0.85,
         ),
-        tempo_stability=TempoStability(
+        tempo_stability=TempoStabilityV1(
             supported_bpm_range=(80, 140),
             drift_slope=0.01,
             fatigue_sensitivity=0.3,
             confidence=0.9,
         ),
-        subdivision_fidelity=SubdivisionFidelity(
+        subdivision_fidelity=SubdivisionFidelityV1(
             supported=["quarter", "eighth", "sixteenth"],
             unstable=["triplet_eighth"],
             swing_tolerance=0.7,
             confidence=0.88,
         ),
-        error_recovery=ErrorRecovery(
+        error_recovery=ErrorRecoveryV1(
             mean_recovery_beats=2.5,
             panic_probability=0.1,
             self_correction_rate=0.8,
         ),
-        groove_elasticity=GrooveElasticity(
+        groove_elasticity=GrooveElasticityV1(
             microtiming_flex_ms=15.0,
             lock_threshold=0.75,
             push_pull_balance="balanced",
         ),
-        confidence_band=ConfidenceBand(lower=0.7, upper=0.95),
-        evidence_window=EvidenceWindow(sessions=10, events=5000),
-        created_at_utc=now,
-        updated_at_utc=now,
+        confidence_band=ConfidenceBandV1(lower=0.7, upper=0.95),
+        evidence_window=EvidenceWindowV1(sessions=10, events=5000),
     )
 
 

@@ -1,110 +1,102 @@
 # SG-AI Copilot Instructions
 
-## Project Overview
+## What This Is
+Offline AI coach (Groove Layer) for Smart Guitar. Pure function: `CoachContextPacket` → `run_coaching_job()` → `CoachingDraft`. No external APIs, no PII.
 
-`sg-ai` is an **offline AI coach** (Groove Layer) for Smart Guitar devices. It operates as a pure function:
-- **Input**: `CoachContextPacket` (JSON validated against `coach_context_packet_v1.json`)
-- **Output**: `CoachingDraft` (JSON validated against `coaching_draft_v1.json`)
-- **No side effects, no external API calls, no PII storage**
-
-## Current Milestone: Explain + Drill Pack v1
-
-For each `TeachingObjective` (from sg-coach), sg-ai provides:
-- **coaching_phrase**: 1-line explanation (max 120 chars)
-- **drill_steps**: exactly 2 concrete practice steps
-- **success_cue**: what success feels like (sensory cue)
-
-**Boundary**: sg-ai does NOT decide timing, modality, or gating. sg-coach owns the teaching plan.
-
-## Architecture
-
-```
-packages/sg-engine/src/sg_engine/
-├── jobs/                 # Job handlers (groove_feedback, practice_summary)
-├── schemas/              # JSON schemas (bundled, not network-loaded)
-├── templates/registry.py # Versioned template specs
-├── governance.py         # PII/content field blocking
-├── device_runtime.py     # FastAPI server for device
-└── api/__init__.py       # REST endpoints (/api/session/*)
-```
-
-**Data Flow**: Device → `CoachContextPacket` → `run_coaching_job()` → `CoachingDraft` → Device
-
-## Critical Developer Commands
-
+## Developer Commands
 ```bash
 cd packages/sg-engine
-
-# Install & run (uses uv, not pip)
-uv sync --all-extras
-uv run pytest                    # Run tests
-uv run ruff check src/           # Lint
-uv run ruff format src/          # Format
-uv run pyright src/sg_engine/    # Type check
-
-# CLI usage
-uv run sg-coach run-job --in context.json --out draft.json
-uv run sg-coach validate --context context.json
-
-# Run acceptance vectors (from repo root)
-python scripts/run_vectors.py --strict
+uv sync --all-extras              # Install (uses uv, NOT pip)
+uv run pytest                     # Tests
+uv run ruff check src/ && uv run ruff format src/  # Lint+format
+uv run pyright src/sg_engine/     # Type check
+python scripts/run_vectors.py --strict  # Acceptance vectors (from repo root)
 ```
 
-## Governance Rules (Non-Negotiable)
+## Architecture & Data Flow
+```
+Device → CoachContextPacket → jobs/runner.py → [job handler] → CoachingDraft → Device
+```
 
-1. **No PII fields** — Never add: `player_id`, `account_id`, `email`, `user_id`, etc. See `FORBIDDEN_PII_FIELDS` in [governance.py](packages/sg-engine/src/sg_engine/governance.py)
-2. **No raw content** — Never reference: `audio_url`, `recording_path`, `video_url`
-3. **Evidence-cited feedback** — Every `feedback[]` item MUST have `evidence_refs[]` array
-4. **No judgmental language** — Avoid: "terrible", "awful", "failed" (see `ensure_no_scoring_language()`)
+Key paths in `packages/sg-engine/src/sg_engine/`:
+- **jobs/runner.py** — Dispatch by `request.kind` + `template_id`
+- **jobs/*.py** — Job handlers (groove_feedback, explain_drill, practice_summary)
+- **governance.py** — PII blocking, evidence enforcement
+- **schemas/** — Bundled JSON schemas (no network loading)
+- **coach_types.py** — Re-exports from `sg-spec` (CoachFinding, Severity, etc.)
 
-## Adding New Jobs
+## Hard Governance Rules
+1. **No PII fields** — See `FORBIDDEN_PII_FIELDS` in [governance.py](packages/sg-engine/src/sg_engine/governance.py): `player_id`, `account_id`, `email`, `user_id`, etc.
+2. **No raw content refs** — Never use: `audio_url`, `recording_path`, `video_url`
+3. **Evidence required** — Every `feedback[]` item needs `evidence_refs[]` array
+4. **No judgmental language** — Forbidden words: `terrible`, `awful`, `horrible`, `failed`, `failure`, `wrong`
+5. Violations raise `GovernanceViolation` (exit code 2)
 
-1. Create handler in `packages/sg-engine/src/sg_engine/jobs/` (follow `groove_feedback.py` pattern)
-2. Register template in `templates/registry.py`
-3. Add dispatch case in `jobs/runner.py`
-4. Add acceptance vector in `fixtures/vectors/`
-5. **Update CHANGELOG.md** when vectors change
+## Adding a New Job
+1. Create `jobs/{job_name}.py` — follow [groove_feedback.py](packages/sg-engine/src/sg_engine/jobs/groove_feedback.py) pattern
+2. Add dispatch in [runner.py](packages/sg-engine/src/sg_engine/jobs/runner.py):
+   ```python
+   if kind == "my_job" and template_id == "my_job":
+       return run_my_job(context)
+   ```
+3. Register template in [templates/registry.py](packages/sg-engine/src/sg_engine/templates/registry.py)
+4. Add acceptance vector in `fixtures/vectors/` + update `CHANGELOG.md`
 
-## Vector-Locked Behavior (Moat Protection)
+## Vector-Locked Behavior
+Groove Layer logic is protected by acceptance vectors:
+- Vectors: `fixtures/vectors/*.json` — define input/expected output pairs
+- CI gate: `scripts/run_vectors.py --strict`
+- **Any vector change requires CHANGELOG.md update**
 
-Changes to Groove Layer feedback logic are protected by acceptance vectors:
-- Vectors live in `fixtures/vectors/*.json`
-- CI runs `scripts/run_vectors.py --strict`
-- **Any vector change requires CHANGELOG.md update and team review**
-
-Example vector structure:
+Vector structure:
 ```json
 {
   "_meta": { "name": "sample_high_tempo_stability", "category": "core" },
-  "input": { "schema_id": "coach_context_packet_v1", ... },
+  "input": { "schema_id": "coach_context_packet_v1", "request": { "kind": "groove_feedback", "template_id": "groove_feedback" }, ... },
   "expected": { "kind": "groove_feedback", "expect_strength_in": ["tempo_stability"] }
 }
 ```
 
-## sg-spec Integration
+## Current Milestone: Explain + Drill Pack v1
+For `explain_drill` jobs, output `drill_packs[]` with:
+- `coaching_phrase`: max 120 chars
+- `drill_steps`: exactly 2 steps
+- `success_cue`: max 150 chars
 
-Types from `sg-spec` are re-exported in [coach_types.py](packages/sg-engine/src/sg_engine/coach_types.py):
+**Boundary**: sg-ai does NOT decide timing/modality/gating — sg-coach owns the teaching plan.
+
+## sg-spec Integration
+Types re-exported from `sg-spec` in [coach_types.py](packages/sg-engine/src/sg_engine/coach_types.py):
 ```python
 from sg_engine.coach_types import CoachFinding, Severity, CoachEvaluation
 ```
 
-Schemas are vendored in `contracts/` — update via sg-spec first, then vendor here.
-
-## Exit Codes (CLI)
-
+## CLI Exit Codes
 | Code | Meaning |
 |------|---------|
 | 0 | Success |
 | 1 | Schema validation error |
-| 2 | Governance violation (PII detected) |
+| 2 | Governance violation (PII) |
 | 3 | Model runtime error |
 | 4 | Unsupported job/template |
 
-## Bundle Building
+## Device Runtime (FastAPI)
+On-device server in [device_runtime.py](packages/sg-engine/src/sg_engine/device_runtime.py):
+```bash
+uv run uvicorn sg_engine.device_runtime:create_app --factory
+```
 
+API endpoints (see [api/__init__.py](packages/sg-engine/src/sg_engine/api/__init__.py)):
+- `GET /api/status` — health + versions
+- `POST /api/session/start` — start coaching session
+- `POST /api/session/event` — ingest groove events
+- `GET /api/session/state` — current session state
+- `POST /api/session/stop` — end session
+
+## Bundle Building
 ```bash
 python scripts/build_bundle.py --version 1.0.0
 python scripts/build_bundle.py --version 1.0.0 --include-ui  # With sg-app
 ```
 
-Output: Deterministic ZIP with manifest, Python source, and optional UI.
+Output: Deterministic ZIP with manifest, Python source, contracts, and optional UI (`sg-app/dist`).
