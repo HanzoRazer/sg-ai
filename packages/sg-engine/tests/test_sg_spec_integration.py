@@ -1,9 +1,9 @@
 # tests/test_sg_spec_integration.py
 """
-Integration tests for sg-spec.ai.coach types.
+Integration tests for sg-spec coach schema types.
 
 Verifies that:
-1. sg_spec.ai.coach.schemas can be imported
+1. sg_spec.schemas.coach_schemas can be imported
 2. coach_types.py re-exports work correctly
 3. to_coach_finding() conversion produces valid CoachFinding
 """
@@ -15,7 +15,7 @@ class TestSgSpecImports:
 
     def test_import_from_sg_spec_directly(self):
         """Import types directly from sg-spec."""
-        from sg_spec.ai.coach.schemas import (
+        from sg_spec.schemas.coach_schemas import (
             CoachFinding,
             CoachEvaluation,
             Severity,
