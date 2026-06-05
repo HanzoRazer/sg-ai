@@ -11,9 +11,9 @@ Responsibilities:
 This job returns a CoachingDraft dict.
 
 sg-spec Integration:
-    Feedback items can be converted to sg_spec.ai.coach.schemas.CoachFinding
-    using to_coach_finding(). This enables interop with string_master's
-    coach layer (Mode 1 rules-based evaluation).
+    Feedback items can be converted to sg_spec.schemas.coach_schemas.CoachFinding
+    using to_coach_finding(). This enables interop with the sg-spec coach
+    schema layer (Mode 1 rules-based evaluation).
 
     Example:
         from sg_engine.coach_types import CoachFinding, Severity

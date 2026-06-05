@@ -20,7 +20,7 @@ from typing import Any, Dict, TYPE_CHECKING
 if TYPE_CHECKING:
     # Import types for static analysis only
     from sg_spec.schemas.groove_layer import GrooveProfileV1
-    from sg_spec.ai.coach.schemas import CoachEvaluation, SessionRecord
+    from sg_spec.schemas.coach_schemas import CoachEvaluation, SessionRecord
 
 
 def groove_profile_to_metrics(profile: "GrooveProfileV1") -> Dict[str, Any]:
@@ -186,7 +186,7 @@ def build_groove_feedback_context(
 
     Example:
         >>> from sg_spec.schemas.groove_layer import GrooveProfileV1
-        >>> from sg_spec.ai.coach.schemas import SessionRecord
+        >>> from sg_spec.schemas.coach_schemas import SessionRecord
         >>> from sg_engine.adapters import build_groove_feedback_context
         >>> from sg_engine.jobs.groove_feedback import run_groove_feedback
         >>>

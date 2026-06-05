@@ -16,8 +16,17 @@ import pytest
 from datetime import datetime, timezone
 from uuid import uuid4
 
-# Skip all tests if sg-spec is not installed
-pytest.importorskip("sg_spec")
+# Quarantined (Sprint 42): this legacy integration test exercises the coaching
+# policy `evaluate_session`, which was removed from sg-spec along with the
+# sg_spec.ai.coach namespace. Coaching policy logic no longer lives in sg-spec
+# (sg-coach is deprecated; the live runtime is sg-agentd). Schema-only import
+# coverage lives in tests/test_sg_spec_integration.py. Re-enable only if an
+# equivalent policy entrypoint is reintroduced.
+pytest.skip(
+    "legacy sg_spec.ai.coach.coach_policy.evaluate_session removed; "
+    "coaching policy no longer lives in sg-spec",
+    allow_module_level=True,
+)
 
 from sg_spec.ai.coach.schemas import (
     SessionRecord,
